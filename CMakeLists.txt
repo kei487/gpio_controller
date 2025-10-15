@@ -7,9 +7,17 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
-# uncomment the following section in order to fill in
-# further dependencies manually.
-# find_package(<dependency> REQUIRED)
+find_package(rclcpp REQUIRED)
+
+ament_auto_find_build_dependencies()
+
+ament_auto_add_executable(gpio_controller
+  src/gpio_controller.cpp
+)
+
+target_link_libraries(gpio_controller
+  yaml-cpp
+)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -23,4 +31,5 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
-ament_package()
+ament_export_include_directories(include)
+ament_auto_package()

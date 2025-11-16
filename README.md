@@ -1,1 +1,3 @@
 # gpio_controller
+gpioからモタドラを制御するROSパッケージ
+を趣味開発中

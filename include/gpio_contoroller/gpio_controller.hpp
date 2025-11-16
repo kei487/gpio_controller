@@ -8,10 +8,8 @@
 #include <memory>
 
 #include "rclcpp/rclcpp.hpp"
-#include "joint_msgs/msg/joint_angle.hpp"
+#include "geometry_msgs/msg/twist.hpp"
 #include <gpiod.hpp>
-#include <iostream>
-#include <unistd.h> // usleep関数のため
 
 using std::placeholders::_1;
 
@@ -25,6 +23,7 @@ public:
 protected:
   void getParam();
   void initGPIOPIN();
+  void initCommunication();
 
 private:
   void topic_callback(const geometry_msgs::msg::Twist & message)

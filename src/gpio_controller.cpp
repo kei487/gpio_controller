@@ -1,12 +1,6 @@
 // SPDX-FileCopyrightText: 2025 Keitaro Nakamura
 // SPDX-License-Identifier: MIT-License
-#include <memory>
-
-#include "rclcpp/rclcpp.hpp"
-#include "joint_msgs/msg/joint_angle.hpp"
-#include <gpiod.hpp>
-#include <iostream>
-#include <unistd.h> // usleep関数のため
+#include "gpio_controller/gpio_controller.hpp"
 
 using std::placeholders::_1;
 // BCMピン番号の定義
@@ -29,11 +23,17 @@ namespace gpio_controller
 GPIOController::GPIOController()
 : Node("GPIOController")
 {
-  cmd_vel_sub_ = this->create_subscription<geometry_msgs::msg::Twist>(
-  "/cmd_vel", 10, std::bind(&GPIOController::topic_callback, this, _1));
+  setParam();
+  initGPIOPIN();
+  initCommunication();
+}
 
-  getParam();
-  initGPIOPIN()  
+void setParam(){
+  this->declare_parameter("wheel_distance", 0.2); //[meter]
+  this->declare_parameter("wheel_radius", 0.05); //[meter]
+
+  this->get_parameter("wheel_distance", wheel_distance_);
+  this->get_parameter("wheel_radius", wheel_radius_);
 }
 
 void initGPIOPIN(){
@@ -45,7 +45,7 @@ void initGPIOPIN(){
       m1_line = chip.get_line(M1_PIN);
       m2_line = chip.get_line(M2_PIN);
       pwma_line = chip.get_line(PWMA_PIN);
-      m3_line = chip.get_line(M3_PIN);
+      cm3_line = chip.get_line(M3_PIN);
       m4_line = chip.get_line(M4_PIN);
       pwmb_line = chip.get_line(PWMB_PIN);
 
@@ -61,24 +61,46 @@ void initGPIOPIN(){
       return 1;
   }
 }
+void initCommunication(){
+  cmd_vel_sub_ = this->create_subscription<geometry_msgs::msg::Twist>(
+  "/cmd_vel", 10, std::bind(&GPIOController::topic_callback, this, _1));
 
-void topic_callback(const geometry_msgs::msg::Twist & message) const
+}
+
+void topic_callback(const geometry_msgs::msg::Twist & msag) const
 {
-
-      std::cout << "前進します (2秒)" << std::endl;
-      forward();
-      sleep(2);
-
-      std::cout << "後退します (2秒)" << std::endl;
-      backward();
-      sleep(2);
-      
-      std::cout << "停止します" << std::endl;
+    if(msg.linear.x < 10e-6 && msg.angular.z < 10e-6){
       motor_stop();
+    }
+    double l = wheel_distance_ / 2;
+    double Or = (msg.linear.x + l*msg.angular.z) / wheel_radius_;
+    double Ol = (msg.linear.x - l*msg.angular.z) / wheel_radius_;
+    motor_move(Or, Ol);
 }
 
   // モーター回転
-void motor_move() {
+void motor_move(double Or, double Ol) {
+  if(Or > 0){
+    m1_line.set_value(1);
+    m2_line.set_value(0);
+    pwma_line.set_value(Or);
+  }else{
+    m1_line.set_value(0);
+    m2_line.set_value(1);
+    pwma_line.set_value(-1*Or);
+  }
+  if(Ol > 0){
+    m3_line.set_value(1);
+    m4_line.set_value(0);
+    pwmb_line.set_value(Or);
+  }else{
+    m3_line.set_value(0);
+    m4_line.set_value(1);
+    pwmb_line.set_value(-1*Ol);
+  }
+}
+
+void motor_stop(){
     m1_line.set_value(0);
     m2_line.set_value(0);
     pwma_line.set_value(0);
